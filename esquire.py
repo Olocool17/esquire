@@ -97,4 +97,9 @@ class Esquire(commands.Bot):
         return False
 
     def initialise(self):
-        self.run(self.config.get('bot_token'))
+        try:
+            self.run(self.config.get('bot_token'))
+        except:
+            log.error(
+                'Could not login the bot. Are you sure the bot_token %s is correct?'
+                % self.config.get('bot_token'))
