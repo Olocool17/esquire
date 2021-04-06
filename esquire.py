@@ -21,7 +21,6 @@ class Esquire(commands.Bot):
         self.command_prefix = self.config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.commandsinit()
-        self.initialise()
 
     def commandsinit(self):
         @self.event
@@ -100,14 +99,14 @@ class Esquire(commands.Bot):
         try:
             self.run(self.config.get('bot_token'))
         except discord.errors.LoginFailure:
-            log.error(
+            log.critical(
                 f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {self.config.get('bot_token')} is correct?"
             )
         except discord.errors.HTTPException as e:
-            log.error("HTTP request failed, error code: " + e.code)
+            log.critical("HTTP request failed, error code: " + e.code)
         except discord.errors.GatewayNotFound:
-            log.error(
+            log.critical(
                 "Gateway connection could not be established. The Discord API is probably experiencing an outage."
             )
         except discord.errors.ConnectionClosed as e:
-            log.error("Gateway connection has been closed: " + e.reason)
+            log.critical("Gateway connection has been closed: " + e.reason)
