@@ -29,11 +29,11 @@ class Esquire(commands.Bot):
             for channel in self.get_all_channels():
                 if isinstance(channel, discord.TextChannel) and str(
                         channel) in self.config.get('allowed_text_channels'):
-                    await channel.send('Esquire initialised.')
+                    await channel.send("Esquire initialised.")
 
         @self.command()
         async def hello(ctx):
-            await ctx.send('ENEMY ARN DETECTED')
+            await ctx.send("ENEMY ARN DETECTED")
 
         @self.command()
         async def wobbify(ctx, *args):
@@ -47,7 +47,7 @@ class Esquire(commands.Bot):
                                                      '_wobbified.txt')
                         await ctx.send(file=wobbifiedfile)
             else:
-                argstr = ' '.join(args)
+                argstr = " ".join(args)
                 await ctx.send(wobbifystring(argstr))
 
         @self.command()
@@ -56,11 +56,11 @@ class Esquire(commands.Bot):
             covert = False
             listargs = list(args)
             try:
-                if 'covert' in listargs:
+                if "covert" in listargs:
                     covert = True
                     listargs.remove('covert')
             except:
-                log.error(f'Argument parsing error for {ctx.message}')
+                log.error(f"Argument parsing error for {ctx.message}")
                 return
             try:
                 author = listargs[0]
@@ -82,24 +82,32 @@ class Esquire(commands.Bot):
                     await ctx.message.delete()
                 else:
 
-                    await ctx.send('NOTHING TO SEE HERE. MOVE ALONG.')
+                    await ctx.send("NOTHING TO SEE HERE. MOVE ALONG.")
 
         @self.command()
         async def shutdown(ctx):
             self.close()
-            asyncio.sleep(5)
-            sys.exit()
+            asyncio.sleep(3)
+            sys.exit(0)
 
     async def checkifowner(self, ctx):
         if await self.is_owner(ctx.author):
             return True
-        await ctx.send('NICE TRY. INSECT')
+        await ctx.send("NICE TRY. INSECT")
         return False
 
     def initialise(self):
         try:
             self.run(self.config.get('bot_token'))
-        except:
+        except discord.errors.LoginFailure:
             log.error(
-                'Could not login the bot. Are you sure the bot_token %s is correct?'
-                % self.config.get('bot_token'))
+                f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {self.config.get('bot_token')} is correct?"
+            )
+        except discord.errors.HTTPException as e:
+            log.error("HTTP request failed, error code: " + e.code)
+        except discord.errors.GatewayNotFound:
+            log.error(
+                "Gateway connection could not be established. The Discord API is probably experiencing an outage."
+            )
+        except discord.errors.ConnectionClosed as e:
+            log.error("Gateway connection has been closed: " + e.reason)
