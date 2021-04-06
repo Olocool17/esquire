@@ -25,11 +25,11 @@ class JsonHandler:
             value = default
             if value == None:
                 log.error(
-                    f'Could not retrieve value for key {key} from JSON. None returned.'
+                    f'Could not retrieve value for key \'{key}\' from JSON. None returned.'
                 )
             else:
                 log.warning(
-                    f'Could not retrieve value for key {key} from JSON. Default returned.'
+                    f'Could not retrieve value for key \'{key}\' from JSON. Default returned.'
                 )
 
         return value
