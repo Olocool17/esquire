@@ -1,0 +1,10 @@
+{
+    "command_prefixes": [
+        "!"
+    ],
+    "case_insensitivity": false,
+    "bot_token": "Insert your bot token here!",
+    "allowed_text_channels": [
+        "general"
+    ]
+}
