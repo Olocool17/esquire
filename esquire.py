@@ -17,12 +17,12 @@ log = logging.getLogger(__name__)
 
 
 class Esquire(commands.Bot):
-    async def __init__(self):
+    def __init__(self):
         self.config = jsonhandler.JsonHandler('config.json')
         self.command_prefix = self.config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.commandsinit()
-        await self.initialise()
+        self.initialise()
 
     def commandsinit(self):
         @self.event
