@@ -1,6 +1,6 @@
 import os
 import sys
-import logging
+import loghandler
 import shutil
 
 import exceptions
@@ -8,13 +8,7 @@ from esquire import Esquire
 
 #Handles logging, checks if various dependencies and files exist, initialises the bot and then attempts to run the bot.
 
-log = logging.getLogger('main')
-log.setLevel(logging.INFO)
-outputhandler = logging.StreamHandler(stream=sys.stdout)
-outputhandler.setFormatter(
-    logging.Formatter(
-        fmt=" %(asctime)s [%(name)s](%(levelname)s) - %(message)s"))
-log.addHandler(outputhandler)
+log = loghandler.get_logger(__name__)
 
 
 def configchecker():
