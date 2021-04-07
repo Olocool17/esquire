@@ -2,7 +2,7 @@ import sys
 import os
 import io
 import asyncio
-import logging
+import loghandler
 import tempfile
 
 import exceptions
@@ -13,7 +13,7 @@ import jsonhandler
 import discord
 from discord.ext import commands
 
-log = logging.getLogger(__name__)
+log = loghandler.get_logger(__name__)
 
 
 class Esquire(commands.Bot):
@@ -105,7 +105,6 @@ class Esquire(commands.Bot):
             log.critical(
                 f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {self.config.get('bot_token')} is correct?"
             )
-            self.quit()
         except discord.errors.HTTPException as e:
             log.critical("HTTP request failed, error code: " + e.code)
         except discord.errors.GatewayNotFound:
@@ -114,23 +113,25 @@ class Esquire(commands.Bot):
             )
         except discord.errors.ConnectionClosed as e:
             log.critical("Gateway connection has been closed: " + e.reason)
+        except RuntimeError:
+            pass
         finally:
             self.quit()
 
     def cleanup(self):
+        self.loop.run_until_complete(self.close())
         try:
-            self.loop.run_until_complete(self.close())
-        except:
-            pass
-        tasks = asyncio.all_tasks()
-        pending = asyncio.gather(*tasks)
-        try:
+            tasks = asyncio.all_tasks()
+            pending = asyncio.gather(*tasks)
             pending.cancel()
+            pending.exception()
         except:
             pass
+        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
         self.loop.close()
 
     def quit(self):
+        log.info("Cleaning up...")
         try:
             self.cleanup()
         except:
