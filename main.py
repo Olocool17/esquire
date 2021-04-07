@@ -46,6 +46,7 @@ def exit(message="Press enter to exit...", code=1):
 def main():
     log.info("Starting launcher...")
     sanitychecker()
+    log.info("All sanity checks passed!")
     try:
         bot = Esquire()
 
