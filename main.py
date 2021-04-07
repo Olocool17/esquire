@@ -2,11 +2,19 @@ import os
 import sys
 import logging
 import shutil
+
+import exceptions
 from esquire import Esquire
 
-log = logging.getLogger(__name__)
-
 #Handles logging, checks if various dependencies and files exist, initialises the bot and then attempts to run the bot.
+
+log = logging.getLogger('main')
+log.setLevel(logging.INFO)
+outputhandler = logging.StreamHandler(stream=sys.stdout)
+outputhandler.setFormatter(
+    logging.Formatter(
+        fmt=" %(asctime)s [%(name)s](%(levelname)s) - %(message)s"))
+log.addHandler(outputhandler)
 
 
 def configchecker():
@@ -16,16 +24,18 @@ def configchecker():
 
     if os.path.isfile(configpath) == False:
         log.info(
-            'Config file does not exist. Attempting to copy the default config file...'
+            "Config file does not exist. Attempting to copy the default config file..."
         )
         try:
             shutil.copyfile(defaultconfigpath, configpath)
             log.info('Default config file has been copied successfully.')
         except FileNotFoundError:
             log.critical(
-                'Could not copy the defaultconfig.json file because it does not exist.'
+                "Check failed: Could not copy the defaultconfig.json file because it does not exist."
             )
             exit()
+    else:
+        log.info("Check passed: config file found.")
 
 
 def sanitychecker():
@@ -40,10 +50,20 @@ def exit(message="Press enter to exit...", code=1):
 
 
 def main():
+    log.info("Starting launcher...")
     sanitychecker()
+    try:
+        bot = Esquire()
 
-    bot = Esquire()
-    bot.initialise()
+    except SyntaxError:
+        log.exception(
+            "CRINGE ALERT! CRINGY SYNTAX ERROR ENCOUNTERED! SHAME! SHAME! SHAME!"
+        )
+    except exceptions.RestartSignal:
+        log.info("Attempting restart...")
+    except exceptions.ExitSignal:
+        log.info("Program will now exit.")
+        exit()
 
 
 if (__name__ == '__main__'):

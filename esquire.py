@@ -5,6 +5,7 @@ import asyncio
 import logging
 import tempfile
 
+import exceptions
 from wobbify import wobbifystring
 from wobbify import wobbifytxt
 import jsonhandler
@@ -16,11 +17,12 @@ log = logging.getLogger(__name__)
 
 
 class Esquire(commands.Bot):
-    def __init__(self):
+    async def __init__(self):
         self.config = jsonhandler.JsonHandler('config.json')
         self.command_prefix = self.config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.commandsinit()
+        await self.initialise()
 
     def commandsinit(self):
         @self.event
@@ -97,11 +99,13 @@ class Esquire(commands.Bot):
 
     def initialise(self):
         try:
-            self.run(self.config.get('bot_token'))
+            self.loop.run_until_complete(
+                self.start(self.config.get('bot_token')))
         except discord.errors.LoginFailure:
             log.critical(
                 f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {self.config.get('bot_token')} is correct?"
             )
+            self.quit()
         except discord.errors.HTTPException as e:
             log.critical("HTTP request failed, error code: " + e.code)
         except discord.errors.GatewayNotFound:
@@ -110,3 +114,26 @@ class Esquire(commands.Bot):
             )
         except discord.errors.ConnectionClosed as e:
             log.critical("Gateway connection has been closed: " + e.reason)
+        finally:
+            self.quit()
+
+    def cleanup(self):
+        try:
+            self.loop.run_until_complete(self.close())
+        except:
+            pass
+        tasks = asyncio.all_tasks()
+        pending = asyncio.gather(*tasks)
+        try:
+            pending.cancel()
+        except:
+            pass
+        self.loop.close()
+
+    def quit(self):
+        try:
+            self.cleanup()
+        except:
+            log.warn("Encountered an error in cleanup.")
+        finally:
+            raise exceptions.ExitSignal
