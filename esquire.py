@@ -90,7 +90,8 @@ class BasicCommands(commands.Cog):
 
     @commands.command()
     async def hello(self, ctx):
-        await ctx.send("ENEMY ARN DETECTED")
+        name = ctx.author.name.upper()
+        await ctx.send(f"ENEMY {name} DETECTED")
 
     @commands.command()
     async def wobbify(self, ctx, *args):

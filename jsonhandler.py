@@ -20,7 +20,12 @@ class JsonHandler:
 
     def get(self, key, default=None):
         try:
-            value = self.data[key]
+            if isinstance(key, list):
+                value = self.data[key[0]]
+                for k in key[1:]:
+                    value = value[k]
+            else:
+                value = self.data[key]
         except KeyError:
             value = default
             if value == None:
