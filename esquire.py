@@ -32,6 +32,7 @@ class Esquire(commands.Bot):
         self.command_prefix = self.config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.add_cog(BasicCommands(self))
+        self.add_cog(MemeCommands(self))
         self.initialise()
 
     def initialise(self):
@@ -50,8 +51,6 @@ class Esquire(commands.Bot):
             )
         except discord.errors.ConnectionClosed as e:
             log.critical("Gateway connection has been closed: " + e.reason)
-        except RuntimeError:
-            pass
         finally:
             self.quit()
 
@@ -128,3 +127,16 @@ class BasicCommands(commands.Cog):
             await ctx.message.delete()
         else:
             await ctx.send("NOTHING TO SEE HERE. MOVE ALONG.")
+
+
+class MemeCommands(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command()
+    async def hoe(self,
+                  ctx,
+                  ish: Argboolparse('is') = False,
+                  daan: Argboolparse('daan') = False):
+        if ish and daan:
+            await ctx.send(random.choice(self.bot.config.get('hoe_is_daan')))
