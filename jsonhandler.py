@@ -48,7 +48,7 @@ class JsonHandler:
                 try:
                     root = root[k]
                 except KeyError:
-                    root.update({k:{}})
+                    root.update({k: {}})
                     root = root[k]
         try:
             root.update({item: value})
@@ -62,7 +62,8 @@ class JsonHandler:
             try:
                 json.dump(self.data, outfile, indent='\t')
             except:
-                log.error(f"Error writing to {self.jsonfile}"
+                log.error(f"Error writing to {self.jsonfile}")
+
 
 class QuotesHandler(JsonHandler):
     def get_all_from_guild(self, guild):
