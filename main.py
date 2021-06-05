@@ -4,11 +4,26 @@ import loghandler
 import shutil
 
 import exceptions
+from discord import opus
 from esquire import Esquire
 
 #Handles logging, checks if various dependencies and files exist, initialises the bot and then attempts to run the bot.
 
 log = loghandler.get_logger(__name__)
+
+OPUS_LIBS = [
+    'libopus-0.x64.dll', 'libopus-0.x86.dll', 'libopus-0.dll', 'libopus.so.0',
+    'libopus.0.dylib'
+]
+
+
+def init_opuslib():
+    if opus.is_loaded() == False:
+        for opuslib in OPUS_LIBS:
+            try:
+                opus.load_opus(opuslib)
+            except:
+                log.warning(f"Could not load the opus library \'{opuslib} \'")
 
 
 def configchecker():
@@ -47,6 +62,7 @@ def main():
     log.info("Starting launcher...")
     sanitychecker()
     log.info("All sanity checks passed!")
+    init_opuslib()
     try:
         bot = Esquire()
 
