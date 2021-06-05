@@ -1,7 +1,8 @@
 import json
+import loghandler
 import logging
 
-log = logging.getLogger(__name__)
+log = loghandler.get_logger(__name__)
 
 
 class JsonHandler:
@@ -68,12 +69,3 @@ class JsonHandler:
 class QuotesHandler(JsonHandler):
     def get_all_from_guild(self, guild):
         pass
-
-
-config = JsonHandler('config.json')
-print(config.data)
-config.update('This is', 'a test!', [
-    'quotes_db',
-    'BlackPancakeKnight',
-])
-print(config.data)

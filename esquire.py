@@ -16,6 +16,7 @@ import discord
 from discord.ext import commands
 
 log = loghandler.get_logger(__name__)
+discordlog = loghandler.get_logger('discord')
 
 
 class Argboolparse(commands.Converter):
@@ -32,7 +33,7 @@ class Esquire(commands.Bot):
         self.command_prefix = self.config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.add_cog(BasicCommands(self))
-        self.add_cog(MemeCommands(self))
+        self.exit_signal = None
         self.initialise()
 
     def initialise(self):
@@ -52,10 +53,14 @@ class Esquire(commands.Bot):
         except discord.errors.ConnectionClosed as e:
             log.critical("Gateway connection has been closed: " + e.reason)
         finally:
-            self.quit()
+            if self.exit_signal:
+                raise self.exit_signal
 
-    def cleanup(self):
-        self.loop.run_until_complete(self.close())
+    async def cleanup(self):
+        try:
+            self.loop.run_until_complete(self.loop.close())
+        except:
+            pass
         try:
             tasks = asyncio.all_tasks()
             pending = asyncio.gather(*tasks)
@@ -63,17 +68,17 @@ class Esquire(commands.Bot):
             pending.exception()
         except:
             pass
-        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-        self.loop.close()
+        finally:
+            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            self.loop.close()
 
-    def quit(self):
+    async def quit(self):
+        self.exit_signal = exceptions.ExitSignal()
         log.info("Cleaning up...")
         try:
-            self.cleanup()
+            await self.cleanup()
         except:
             log.warn("Encountered an error in cleanup.")
-        finally:
-            raise exceptions.ExitSignal
 
 
 class BasicCommands(commands.Cog):
@@ -127,16 +132,3 @@ class BasicCommands(commands.Cog):
             await ctx.message.delete()
         else:
             await ctx.send("NOTHING TO SEE HERE. MOVE ALONG.")
-
-
-class MemeCommands(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @commands.command()
-    async def hoe(self,
-                  ctx,
-                  ish: Argboolparse('is') = False,
-                  daan: Argboolparse('daan') = False):
-        if ish and daan:
-            await ctx.send(random.choice(self.bot.config.get('hoe_is_daan')))

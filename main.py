@@ -56,6 +56,7 @@ def main():
         )
     except exceptions.RestartSignal:
         log.info("Attempting restart...")
+        main()
     except exceptions.ExitSignal:
         log.info("Program will now exit.")
         exit()
