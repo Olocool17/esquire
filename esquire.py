@@ -12,6 +12,10 @@ from wobbify import wobbifystring
 from wobbify import wobbifytxt
 import jsonhandler
 
+from bs4 import BeautifulSoup
+import youtube_dl
+import urllib
+
 import discord
 from discord.ext import commands
 
@@ -35,6 +39,7 @@ class Esquire(commands.Bot):
         self.add_cog(BasicCommands(self))
         self.add_cog(MusicCommands(self))
         self.exit_signal = None
+        self.playlist = []
         self.initialise()
 
     def initialise(self):
@@ -80,6 +85,9 @@ class Esquire(commands.Bot):
             await self.cleanup()
         except:
             log.warn("Encountered an error in cleanup.")
+
+    def playlist_add(self, playlistitem):
+        self.playlist.append(playlistitem)
 
 
 class BasicCommands(commands.Cog):
@@ -146,7 +154,19 @@ class MusicCommands(commands.Cog):
             await connect_channel.connect()
 
     @commands.command()
-    async def play(self, ctx):
-        voice_client = self.bot.voice_clients[0]
-        audio_source = discord.FFmpegPCMAudio('02 - Don\'t Start Now.flac')
-        voice_client.play(audio_source)
+    async def play(self, ctx, *, query):
+        self.bot.playlist_add(PlaylistItem(query))
+        #audio_source = discord.FFmpegPCMAudio('02 - Don\'t Start Now.flac')
+        #voice_client.play(audio_source)
+
+
+class PlaylistItem:
+    def __init__(self, query):
+        self.htmlquery = 'https://www.youtube.com/results?search_query=' + query.replace(
+            ' ', '+')
+        self.html = urllib.request.urlopen(self.htmlquery).read()
+        soup = BeautifulSoup(self.html, 'html.parser')
+        firstresult = soup.find(id='thumbnail', recursive=True)
+        print(self.htmlquery)
+        print(bool(soup))
+        print(firstresult)
