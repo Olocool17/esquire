@@ -33,6 +33,7 @@ class Esquire(commands.Bot):
         self.command_prefix = self.config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.add_cog(BasicCommands(self))
+        self.add_cog(MusicCommands(self))
         self.exit_signal = None
         self.initialise()
 
@@ -132,3 +133,12 @@ class BasicCommands(commands.Cog):
             await ctx.message.delete()
         else:
             await ctx.send("NOTHING TO SEE HERE. MOVE ALONG.")
+
+
+class MusicCommands(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command()
+    async def connect(self, ctx):
+        await ctx.channel.connect()
