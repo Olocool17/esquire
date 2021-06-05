@@ -141,4 +141,12 @@ class MusicCommands(commands.Cog):
 
     @commands.command()
     async def connect(self, ctx):
-        await ctx.channel.connect()
+        connect_channel = ctx.author.voice.channel
+        if connect_channel != None:
+            await connect_channel.connect()
+
+    @commands.command()
+    async def play(self, ctx):
+        voice_client = self.bot.voice_clients[0]
+        audio_source = discord.FFmpegPCMAudio('02 - Don\'t Start Now.flac')
+        voice_client.play(audio_source)
