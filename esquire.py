@@ -12,9 +12,8 @@ from wobbify import wobbifystring
 from wobbify import wobbifytxt
 import jsonhandler
 
-from bs4 import BeautifulSoup
 import youtube_dl
-import urllib
+from requests import get
 
 import discord
 from discord.ext import commands
@@ -22,13 +21,13 @@ from discord.ext import commands
 log = loghandler.get_logger(__name__)
 discordlog = loghandler.get_logger('discord')
 
+ffmpeg_options = {
+    'options': '-vn',
+    "before_options":
+    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+}
 
-class Argboolparse(commands.Converter):
-    def __init__(self, keyword):
-        self.keyword = keyword
-
-    async def convert(self, ctx, argument):
-        return argument == self.keyword
+YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': 'True'}
 
 
 class Esquire(commands.Bot):
@@ -39,7 +38,6 @@ class Esquire(commands.Bot):
         self.add_cog(BasicCommands(self))
         self.add_cog(MusicCommands(self))
         self.exit_signal = None
-        self.playlist = []
         self.initialise()
 
     def initialise(self):
@@ -86,9 +84,6 @@ class Esquire(commands.Bot):
         except:
             log.warn("Encountered an error in cleanup.")
 
-    def playlist_add(self, playlistitem):
-        self.playlist.append(playlistitem)
-
 
 class BasicCommands(commands.Cog):
     def __init__(self, bot):
@@ -121,52 +116,78 @@ class BasicCommands(commands.Cog):
             argstr = " ".join(args)
             await ctx.send(wobbifystring(argstr))
 
-    @commands.command()
-    async def deletelast(self,
-                         ctx,
-                         member: typing.Optional[discord.Member] = None,
-                         covert: Argboolparse('covert') = False):
-
-        messages = ctx.history().filter(lambda x: not x.author.bot)
-        if member != None:
-            async for m in messages:
-                if (m.author == member and m != ctx.message):
-                    message = m
-                    break
-        else:
-            messages = await messages.flatten()
-            message = messages[1]
-        await message.delete()
-        if covert:
-            await ctx.message.delete()
-        else:
-            await ctx.send("NOTHING TO SEE HERE. MOVE ALONG.")
-
 
 class MusicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.playlist = []
+        self.voiceclient = None
 
     @commands.command()
     async def connect(self, ctx):
         connect_channel = ctx.author.voice.channel
         if connect_channel != None:
-            await connect_channel.connect()
+            if ctx.voice_client is None:
+                await connect_channel.connect()
+            else:
+                await ctx.voice_client.move_to(connect_channel)
+        self.voiceclient = ctx.voice_client
 
     @commands.command()
     async def play(self, ctx, *, query):
-        self.bot.playlist_add(PlaylistItem(query))
-        #audio_source = discord.FFmpegPCMAudio('02 - Don\'t Start Now.flac')
-        #voice_client.play(audio_source)
+        playlistitem = await PlaylistItem.yt_populate(query,
+                                                      loop=self.bot.loop)
+        self.playlist.append(playlistitem)
+        print(self.playlist)
+        if len(self.playlist) == 1:
+            await self.playback()
+
+    @play.before_invoke
+    async def ensure_connection(self, ctx):
+        if ctx.voice_client is None:
+            await self.connect(ctx)
+
+    async def playback(self):
+        if len(self.playlist) != 0:
+            self.voiceclient.play(self.playlist[0].audio_source,
+                                  after=await self.after_playback())
+
+    async def after_playback(self, error=None):
+        del self.playlist[0]
 
 
 class PlaylistItem:
-    def __init__(self, query):
-        self.htmlquery = 'https://www.youtube.com/results?search_query=' + query.replace(
-            ' ', '+')
-        self.html = urllib.request.urlopen(self.htmlquery).read()
-        soup = BeautifulSoup(self.html, 'html.parser')
-        firstresult = soup.find(id='thumbnail', recursive=True)
-        print(self.htmlquery)
-        print(bool(soup))
-        print(firstresult)
+    def __init__(self, title, thumbnail, duration, upload_date, audio_source):
+        self.title = title
+        self.thumbnail = thumbnail
+        self.duration = duration
+        self.upload_date = upload_date
+        self.audio_source = audio_source
+
+    @classmethod
+    async def yt_populate(cls, query, loop=None):
+        loop = loop or asyncio.get_event_loop()
+        with youtube_dl.YoutubeDL(YDL_OPTIONS) as ydl:
+            try:
+                get(query)
+                data = await loop.run_in_executor(
+                    None, lambda: ydl.extract_info(query, download=False))
+            except:
+                data = await loop.run_in_executor(
+                    None, lambda: ydl.extract_info(f"ytsearch:{query}",
+                                                   download=False))
+        if 'entries' in data:
+            data = data['entries'][0]
+        title = data['title']
+        thumbnail = get(data['thumbnail'])
+        duration = data['duration']  #in seconds
+        upload_date = data['upload_date']  #YYYYDDMM
+        formats = data['formats']
+        for f in formats:
+            if f['format_id'] == '140':
+                audiostream_url = f['url']
+                break
+        print(audiostream_url)
+        audio_source = discord.FFmpegPCMAudio(audiostream_url,
+                                              **ffmpeg_options)
+        return cls(title, thumbnail, duration, upload_date, audio_source)
