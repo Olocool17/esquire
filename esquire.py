@@ -138,7 +138,6 @@ class MusicCommands(commands.Cog):
         playlistitem = await PlaylistItem.yt_populate(query,
                                                       loop=self.bot.loop)
         self.playlist.append(playlistitem)
-        print(self.playlist)
         if len(self.playlist) == 1:
             await self.playback()
 
@@ -148,12 +147,12 @@ class MusicCommands(commands.Cog):
             await self.connect(ctx)
 
     async def playback(self):
-        if len(self.playlist) != 0:
-            self.voiceclient.play(self.playlist[0].audio_source,
-                                  after=await self.after_playback())
-
-    async def after_playback(self, error=None):
+        if len(self.playlist) == 0:
+            return
+        self.voiceclient.play(self.playlist[0].audio_source)
+        await asyncio.sleep(self.playlist[0].duration + 1)
         del self.playlist[0]
+        await self.playback()
 
 
 class PlaylistItem:
