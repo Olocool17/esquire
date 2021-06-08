@@ -33,7 +33,7 @@ config = jsonhandler.JsonHandler('config.json')
 
 
 def is_music_channel(ctx):
-    return ctx.channel is config.get('music_channel')
+    return str(ctx.channel) == config.get('music_channel')
 
 
 class Esquire(commands.Bot):
@@ -99,6 +99,8 @@ class BasicCommands(commands.Cog):
             if isinstance(channel, discord.TextChannel) and str(
                     channel) in config.get('allowed_text_channels'):
                 await channel.send("Esquire initialised.")
+        await self.bot.change_presence(status=discord.Status.idle,
+                                       activity=None)
 
     @commands.command()
     async def hello(self, ctx):
@@ -144,6 +146,7 @@ class MusicCommands(commands.Cog):
         playlistitem = await PlaylistItem.yt_populate(query,
                                                       loop=self.bot.loop)
         self.playlist.append(playlistitem)
+        await self.playlist[-1].calculate_start_end(self.playlist)
         if len(self.playlist) == 1:
             await self.playlist_message_send()
             await self.playback()
@@ -153,14 +156,38 @@ class MusicCommands(commands.Cog):
         if ctx.voice_client is None:
             await self.connect(ctx)
 
+    @commands.command(pass_context=True)
+    @commands.check(is_music_channel)
     async def playlist_message_send(self):
-        self.playlist_message
+        return
+
+    async def playlist_message_delete(self):
+        return
 
     async def playback(self):
         if len(self.playlist) == 0:
+            await self.bot.change_presence(status=discord.Status.idle,
+                                           activity=None)
+            await self.playlist_message_delete()
             return
-        self.voiceclient.play(self.playlist[0].audio_source)
-        await asyncio.sleep(self.playlist[0].duration + 1)
+        playing_activity = discord.Activity(type=discord.ActivityType.playing,
+                                            name=self.playlist[0].title,
+                                            details="Playing a song",
+                                            state="Playing a song")
+        await self.bot.change_presence(status=discord.Status.online,
+                                       activity=playing_activity)
+        self.voiceclient.play(self.playlist[0].audio_source,
+                              after=self.after_playback_async)
+
+    def after_playback_async(self, error):
+        fut = asyncio.run_coroutine_threadsafe(self.after_playback(),
+                                               self.bot.loop)
+        try:
+            fut.result()
+        except:
+            pass
+
+    async def after_playback(self):
         del self.playlist[0]
         await self.playback()
 
@@ -172,6 +199,12 @@ class PlaylistItem:
         self.duration = duration
         self.upload_date = upload_date
         self.audio_source = audio_source
+        self.start = None
+        self.end = None
+
+    async def calculate_start_end(self, playlist):
+        self.start = sum([plitem.duration + 1 for plitem in playlist[:-1:]])
+        self.end = self.start + self.duration
 
     @classmethod
     async def yt_populate(cls, query, loop=None):
@@ -196,7 +229,6 @@ class PlaylistItem:
             if f['format_id'] == '140':
                 audiostream_url = f['url']
                 break
-        print(audiostream_url)
         audio_source = discord.FFmpegPCMAudio(audiostream_url,
                                               **ffmpeg_options)
         return cls(title, thumbnail, duration, upload_date, audio_source)
