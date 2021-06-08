@@ -29,11 +29,16 @@ ffmpeg_options = {
 
 YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': 'True'}
 
+config = jsonhandler.JsonHandler('config.json')
+
+
+def is_music_channel(ctx):
+    return ctx.channel is config.get('music_channel')
+
 
 class Esquire(commands.Bot):
     def __init__(self):
-        self.config = jsonhandler.JsonHandler('config.json')
-        self.command_prefix = self.config.get('command_prefixes')
+        self.command_prefix = config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
         self.add_cog(BasicCommands(self))
         self.add_cog(MusicCommands(self))
@@ -42,11 +47,10 @@ class Esquire(commands.Bot):
 
     def initialise(self):
         try:
-            self.loop.run_until_complete(
-                self.start(self.config.get('bot_token')))
+            self.loop.run_until_complete(self.start(config.get('bot_token')))
         except discord.errors.LoginFailure:
             log.critical(
-                f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {self.config.get('bot_token')} is correct?"
+                f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {config.get('bot_token')} is correct?"
             )
         except discord.errors.HTTPException as e:
             log.critical("HTTP request failed, error code: " + e.code)
@@ -93,7 +97,7 @@ class BasicCommands(commands.Cog):
     async def on_ready(self):
         for channel in self.bot.get_all_channels():
             if isinstance(channel, discord.TextChannel) and str(
-                    channel) in self.bot.config.get('allowed_text_channels'):
+                    channel) in config.get('allowed_text_channels'):
                 await channel.send("Esquire initialised.")
 
     @commands.command()
@@ -122,6 +126,7 @@ class MusicCommands(commands.Cog):
         self.bot = bot
         self.playlist = []
         self.voiceclient = None
+        self.playlist_message = None
 
     @commands.command()
     async def connect(self, ctx):
@@ -133,18 +138,23 @@ class MusicCommands(commands.Cog):
                 await ctx.voice_client.move_to(connect_channel)
         self.voiceclient = ctx.voice_client
 
-    @commands.command()
+    @commands.command(pass_context=True)
+    @commands.check(is_music_channel)
     async def play(self, ctx, *, query):
         playlistitem = await PlaylistItem.yt_populate(query,
                                                       loop=self.bot.loop)
         self.playlist.append(playlistitem)
         if len(self.playlist) == 1:
+            await self.playlist_message_send()
             await self.playback()
 
     @play.before_invoke
     async def ensure_connection(self, ctx):
         if ctx.voice_client is None:
             await self.connect(ctx)
+
+    async def playlist_message_send(self):
+        self.playlist_message
 
     async def playback(self):
         if len(self.playlist) == 0:
