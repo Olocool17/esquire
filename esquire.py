@@ -16,6 +16,7 @@ import youtube_dl
 from requests import get
 
 import discord
+import discord.utils
 from discord.ext import commands
 
 log = loghandler.get_logger(__name__)
@@ -33,16 +34,17 @@ config = jsonhandler.JsonHandler('config.json')
 
 
 def is_music_channel(ctx):
-    return str(ctx.channel) == config.get('music_channel')
+    return str(ctx.channel) == config.get('music_channel') or str(
+        ctx.channel) in config.get('music_channel')
 
 
 class Esquire(commands.Bot):
     def __init__(self):
         self.command_prefix = config.get('command_prefixes')
         super(Esquire, self).__init__(self.command_prefix)
+        self.exit_signal = None
         self.add_cog(BasicCommands(self))
         self.add_cog(MusicCommands(self))
-        self.exit_signal = None
         self.initialise()
 
     def initialise(self):
@@ -148,8 +150,10 @@ class MusicCommands(commands.Cog):
         self.playlist.append(playlistitem)
         await self.playlist[-1].calculate_start_end(self.playlist)
         if len(self.playlist) == 1:
-            await self.playlist_message_send()
+            await self.playlist_message_send(ctx)
             await self.playback()
+        else:
+            await self.playlist_message_update()
 
     @play.before_invoke
     async def ensure_connection(self, ctx):
@@ -158,11 +162,31 @@ class MusicCommands(commands.Cog):
 
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
-    async def playlist_message_send(self):
-        return
+    async def skip(self, ctx):
+        self.voiceclient.stop()
+
+    @commands.command(pass_context=True)
+    @commands.check(is_music_channel)
+    async def stop(self, ctx):
+        self.playlist = self.playlist[0:1:]
+        self.voiceclient.stop()
+
+    async def playlist_message_update(self):
+        embed = discord.Embed(title='Now Playing',
+                              description=self.playlist[0].title)
+        embed.set_thumbnail(url=self.playlist[0].thumbnail)
+        if len(self.playlist) > 1:
+            for i, pitem in enumerate(self.playlist[1:]):
+                embed.add_field(name=str(i + 1).zfill(3),
+                                value=pitem.title,
+                                inline=False)
+        await self.playlist_message.edit(embed=embed, content=None)
+
+    async def playlist_message_send(self, ctx):
+        self.playlist_message = await ctx.send(content='...')
 
     async def playlist_message_delete(self):
-        return
+        await self.playlist_message.delete()
 
     async def playback(self):
         if len(self.playlist) == 0:
@@ -170,6 +194,7 @@ class MusicCommands(commands.Cog):
                                            activity=None)
             await self.playlist_message_delete()
             return
+        await self.playlist_message_update()
         playing_activity = discord.Activity(type=discord.ActivityType.playing,
                                             name=self.playlist[0].title,
                                             details="Playing a song",
@@ -221,7 +246,7 @@ class PlaylistItem:
         if 'entries' in data:
             data = data['entries'][0]
         title = data['title']
-        thumbnail = get(data['thumbnail'])
+        thumbnail = data['thumbnail']
         duration = data['duration']  #in seconds
         upload_date = data['upload_date']  #YYYYDDMM
         formats = data['formats']
