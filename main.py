@@ -53,7 +53,6 @@ def configchecker():
 
 def sanitychecker():
     log.info("Initialising sanity checks...")
-
     configchecker()
 
 

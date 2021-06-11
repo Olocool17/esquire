@@ -128,9 +128,13 @@ class BasicCommands(commands.Cog):
 class MusicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.playlist = []
-        self.voiceclient = None
-        self.playlist_message = None
+        self.playlistmanagers = []
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if (str(message.channel) == config.get('music_channel') or str(
+                message.channel) in config.get('music_channel')) and not message.author.bot:
+            await message.delete(delay=3)
 
     @commands.command()
     async def connect(self, ctx):
@@ -140,20 +144,14 @@ class MusicCommands(commands.Cog):
                 await connect_channel.connect()
             else:
                 await ctx.voice_client.move_to(connect_channel)
-        self.voiceclient = ctx.voice_client
+        self.playlistmanagers.append(PlaylistManager(ctx))
 
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
     async def play(self, ctx, *, query):
-        playlistitem = await PlaylistItem.yt_populate(query,
-                                                      loop=self.bot.loop)
-        self.playlist.append(playlistitem)
-        await self.playlist[-1].calculate_start_end(self.playlist)
-        if len(self.playlist) == 1:
-            await self.playlist_message_send(ctx)
-            await self.playback()
-        else:
-            await self.playlist_message_update()
+        for plmanager in self.playlistmanagers:
+            if ctx.voice_client == plmanager.voiceclient:
+                await plmanager.queue(query)
 
     @play.before_invoke
     async def ensure_connection(self, ctx):
@@ -163,30 +161,35 @@ class MusicCommands(commands.Cog):
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
     async def skip(self, ctx):
-        self.voiceclient.stop()
+        ctx.voice_client.stop()
 
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
     async def stop(self, ctx):
-        self.playlist = self.playlist[0:1:]
-        self.voiceclient.stop()
+        for plmanager in self.playlistmanagers:
+            if ctx.voice_client == plmanager.voiceclient:
+                plmanager.playlist = plmanager.playlist[0:1:]
+        ctx.voice_client.stop()
 
-    async def playlist_message_update(self):
-        embed = discord.Embed(title='Now Playing',
-                              description=self.playlist[0].title)
-        embed.set_thumbnail(url=self.playlist[0].thumbnail)
-        if len(self.playlist) > 1:
-            for i, pitem in enumerate(self.playlist[1:]):
-                embed.add_field(name=str(i + 1).zfill(3),
-                                value=pitem.title,
-                                inline=False)
-        await self.playlist_message.edit(embed=embed, content=None)
 
-    async def playlist_message_send(self, ctx):
-        self.playlist_message = await ctx.send(content='...')
+class PlaylistManager:
+    def __init__(self, ctx):
+        self.bot = ctx.bot
+        self.textchannel = ctx.channel
+        self.guild = ctx.guild
+        self.voiceclient = ctx.voice_client
+        self.playlist = []
+        self.playlist_message = None
 
-    async def playlist_message_delete(self):
-        await self.playlist_message.delete()
+    async def queue(self, query):
+        playlistitem = await PlaylistItem.yt_populate(query,
+                                                      loop=self.bot.loop)
+        self.playlist.append(playlistitem)
+        if len(self.playlist) == 1:
+            await self.playlist_message_send()
+            await self.playback()
+        else:
+            await self.playlist_message_update()
 
     async def playback(self):
         if len(self.playlist) == 0:
@@ -216,6 +219,23 @@ class MusicCommands(commands.Cog):
         del self.playlist[0]
         await self.playback()
 
+    async def playlist_message_update(self):
+        embed = discord.Embed(title='Now Playing',
+                              description=self.playlist[0].title)
+        embed.set_thumbnail(url=self.playlist[0].thumbnail)
+        if len(self.playlist) > 1:
+            for i, pitem in enumerate(self.playlist[1:]):
+                embed.add_field(name=str(i + 1).zfill(3),
+                                value=pitem.title,
+                                inline=False)
+        await self.playlist_message.edit(embed=embed, content=None)
+
+    async def playlist_message_send(self):
+        self.playlist_message = await self.textchannel.send(content='...')
+
+    async def playlist_message_delete(self):
+        await self.playlist_message.delete()
+
 
 class PlaylistItem:
     def __init__(self, title, thumbnail, duration, upload_date, audio_source):
@@ -226,10 +246,6 @@ class PlaylistItem:
         self.audio_source = audio_source
         self.start = None
         self.end = None
-
-    async def calculate_start_end(self, playlist):
-        self.start = sum([plitem.duration + 1 for plitem in playlist[:-1:]])
-        self.end = self.start + self.duration
 
     @classmethod
     async def yt_populate(cls, query, loop=None):
@@ -254,6 +270,6 @@ class PlaylistItem:
             if f['format_id'] == '140':
                 audiostream_url = f['url']
                 break
-        audio_source = discord.FFmpegPCMAudio(audiostream_url,
-                                              **ffmpeg_options)
+        audio_source = discord.FFmpegOpusAudio(audiostream_url,
+                                               **ffmpeg_options)
         return cls(title, thumbnail, duration, upload_date, audio_source)
