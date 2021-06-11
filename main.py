@@ -2,6 +2,8 @@ import os
 import sys
 import loghandler
 import shutil
+import ctypes
+import platform
 
 import exceptions
 from discord import opus
@@ -18,12 +20,14 @@ OPUS_LIBS = [
 
 
 def init_opuslib():
-    if opus.is_loaded() == False:
-        for opuslib in OPUS_LIBS:
-            try:
-                opus.load_opus(opuslib)
-            except:
-                log.warning(f"Could not load the opus library \'{opuslib} \'")
+    if opus.is_loaded() == False and platform.system() != 'Windows':
+        try:
+            lib = ctypes.util.find_library('opus')
+            opus.load_opus(lib)
+        except:
+            log.warning(
+                f"Could not load the opus library. Are you sure you have an opus library installed?"
+            )
 
 
 def configchecker():
