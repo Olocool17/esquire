@@ -1,12 +1,7 @@
-import sys
-import os
-import io
 import asyncio
 
 from spotipy.exceptions import SpotifyException
 import loghandler
-import tempfile
-import typing
 import random
 
 import exceptions
