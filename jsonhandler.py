@@ -1,6 +1,5 @@
 import json
 import loghandler
-import logging
 
 log = loghandler.get_logger(__name__)
 
