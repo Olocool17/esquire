@@ -13,11 +13,6 @@ from esquire import Esquire
 
 log = loghandler.get_logger(__name__)
 
-OPUS_LIBS = [
-    'libopus-0.x64.dll', 'libopus-0.x86.dll', 'libopus-0.dll', 'libopus.so.0',
-    'libopus.0.dylib'
-]
-
 
 def init_opuslib():
     if opus.is_loaded() == False and platform.system() != 'Windows':
@@ -54,6 +49,7 @@ def configchecker():
 def sanitychecker():
     log.info("Initialising sanity checks...")
     configchecker()
+    init_opuslib()
 
 
 def exit(message="Press enter to exit...", code=1):
@@ -65,7 +61,6 @@ def main():
     log.info("Starting launcher...")
     sanitychecker()
     log.info("All sanity checks passed!")
-    init_opuslib()
     try:
         bot = Esquire()
 
