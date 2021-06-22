@@ -138,9 +138,8 @@ class MusicCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         is_playlist_message = message.content == '...' and message.author.bot
-        if (str(message.channel) == config.get('music_channel')
-                or str(message.channel)
-                in config.get('music_channel')) and not is_playlist_message:
+        if str(message.channel) in config.get(
+                'music_channel') and not is_playlist_message:
             await message.delete(delay=3)
 
     @commands.command()

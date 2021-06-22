@@ -6,5 +6,10 @@
     "bot_token": "Insert your bot token here!",
     "allowed_text_channels": [
         "general"
+    ],
+    "spotify_client_id": "Insert your Spotify API Client ID here!",
+    "spotify_client_secret": "Insert your Spotify API Client ID here!",
+    "music_channel": [
+        "Insert the music channel name(s) for the bot's guilds here!"
     ]
 }
