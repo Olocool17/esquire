@@ -2,6 +2,8 @@ import sys
 import os
 import io
 import asyncio
+
+from spotipy.exceptions import SpotifyException
 import loghandler
 import tempfile
 import typing
@@ -14,6 +16,8 @@ import jsonhandler
 
 import youtube_dl
 from requests import get
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 
 import discord
 import discord.utils
@@ -31,6 +35,10 @@ ffmpeg_options = {
 YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': 'True'}
 
 config = jsonhandler.JsonHandler('config.json')
+
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+    client_id=config.get('spotify_client_id'),
+    client_secret=config.get('spotify_client_secret')))
 
 
 def is_music_channel(ctx):
@@ -97,10 +105,6 @@ class BasicCommands(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        for channel in self.bot.get_all_channels():
-            if isinstance(channel, discord.TextChannel) and str(
-                    channel) in config.get('allowed_text_channels'):
-                await channel.send("Esquire initialised.")
         await self.bot.change_presence(status=discord.Status.idle,
                                        activity=None)
 
@@ -129,11 +133,14 @@ class MusicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.playlistmanagers = []
+        self.playlist_messages = []
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if (str(message.channel) == config.get('music_channel') or str(
-                message.channel) in config.get('music_channel')) and not message.author.bot:
+        is_playlist_message = message.content == '...' and message.author.bot
+        if (str(message.channel) == config.get('music_channel')
+                or str(message.channel)
+                in config.get('music_channel')) and not is_playlist_message:
             await message.delete(delay=3)
 
     @commands.command()
@@ -149,10 +156,27 @@ class MusicCommands(commands.Cog):
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
     async def play(self, ctx, *, query):
-        for plmanager in self.playlistmanagers:
-            if ctx.voice_client == plmanager.voiceclient:
-                await plmanager.queue(query)
+        plmanager = PlaylistManager.retrieve_playlist_manager(
+            ctx, self.playlistmanagers)
+        await plmanager.queue(query, next=False)
 
+    @commands.command(pass_context=True)
+    @commands.check(is_music_channel)
+    async def playnext(self, ctx, *, query):
+        plmanager = PlaylistManager.retrieve_playlist_manager(
+            ctx, self.playlistmanagers)
+        await plmanager.queue(query, next=True)
+
+    @commands.command(pass_context=True)
+    @commands.check(is_music_channel)
+    async def playspotify(self, ctx, url, amount=10, shuffle=''):
+        shufflebool = False if shuffle == '' else True
+        plmanager = PlaylistManager.retrieve_playlist_manager(
+            ctx, self.playlistmanagers)
+        await plmanager.queue_spotify(url, amount, shufflebool)
+
+    @playspotify.before_invoke
+    @playnext.before_invoke
     @play.before_invoke
     async def ensure_connection(self, ctx):
         if ctx.voice_client is None:
@@ -166,9 +190,9 @@ class MusicCommands(commands.Cog):
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
     async def stop(self, ctx):
-        for plmanager in self.playlistmanagers:
-            if ctx.voice_client == plmanager.voiceclient:
-                plmanager.playlist = plmanager.playlist[0:1:]
+        plmanager = PlaylistManager.retrieve_playlist_manager(
+            ctx, self.playlistmanagers)
+        plmanager.playlist = plmanager.playlist[0:1:]
         ctx.voice_client.stop()
 
 
@@ -181,18 +205,41 @@ class PlaylistManager:
         self.playlist = []
         self.playlist_message = None
 
-    async def queue(self, query):
+    async def queue(self, query, next=False):
         playlistitem = await PlaylistItem.yt_populate(query,
                                                       loop=self.bot.loop)
-        self.playlist.append(playlistitem)
+        if next:
+            self.playlist.insert(1, playlistitem)
+        else:
+            self.playlist.append(playlistitem)
         if len(self.playlist) == 1:
             await self.playlist_message_send()
             await self.playback()
         else:
             await self.playlist_message_update()
 
+    async def queue_spotify(self, url, amount=10, shuffle=False):
+        try:
+            playlist = sp.playlist_items(url, additional_types=['track'])
+        except SpotifyException:
+            log.warning(
+                "Error retrieving the playlist from Spotify. The Spotify API might be down, or the provided URL might not be a playlist."
+            )
+            return
+        tracks = playlist['items']
+        while playlist['next']:
+            playlist = sp.next(playlist)
+            tracks.extend(playlist['items'])
+        if shuffle:
+            random.shuffle(tracks)
+        for i in range(min(amount, len(tracks))):
+            title = tracks[i]['track']['name']
+            artist = tracks[i]['track']['artists'][0]['name']
+            await self.queue(artist + ' ' + title)
+
     async def playback(self):
         if len(self.playlist) == 0:
+            self.voiceclient.stop()
             await self.bot.change_presence(status=discord.Status.idle,
                                            activity=None)
             await self.playlist_message_delete()
@@ -221,8 +268,15 @@ class PlaylistManager:
 
     async def playlist_message_update(self):
         embed = discord.Embed(title='Now Playing',
-                              description=self.playlist[0].title)
+                              description=self.playlist[0].title,
+                              colour=discord.Colour.red())
         embed.set_thumbnail(url=self.playlist[0].thumbnail)
+        playlistduration = sum([plitem.duration for plitem in self.playlist])
+        duration_s = str(playlistduration % 60)
+        duration_m = str((playlistduration % 3600) // 60)
+        duration_h = str(playlistduration // 3600)
+        embed.set_footer(
+            text=f"Total duration: {duration_h}h{duration_m}m{duration_s}s")
         if len(self.playlist) > 1:
             for i, pitem in enumerate(self.playlist[1:]):
                 embed.add_field(name=str(i + 1).zfill(3),
@@ -235,6 +289,12 @@ class PlaylistManager:
 
     async def playlist_message_delete(self):
         await self.playlist_message.delete()
+
+    @classmethod
+    def retrieve_playlist_manager(cls, ctx, playlistmanagers_list):
+        for plmanager in playlistmanagers_list:
+            if ctx.voice_client == plmanager.voiceclient:
+                return plmanager
 
 
 class PlaylistItem:
@@ -260,7 +320,11 @@ class PlaylistItem:
                     None, lambda: ydl.extract_info(f"ytsearch:{query}",
                                                    download=False))
         if 'entries' in data:
-            data = data['entries'][0]
+            try:
+                data = data['entries'][0]
+            except:
+                log.warning(
+                    f"YTDL found no search results for query \'{query}\'")
         title = data['title']
         thumbnail = data['thumbnail']
         duration = data['duration']  #in seconds
