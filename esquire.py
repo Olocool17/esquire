@@ -66,30 +66,23 @@ class Esquire(commands.Bot):
         except discord.errors.ConnectionClosed as e:
             log.critical("Gateway connection has been closed: " + e.reason)
         finally:
+            self.quit()
             if self.exit_signal:
                 raise self.exit_signal
 
-    async def cleanup(self):
-        try:
-            self.loop.run_until_complete(self.loop.close())
-        except:
-            pass
-        try:
-            tasks = asyncio.all_tasks()
-            pending = asyncio.gather(*tasks)
-            pending.cancel()
-            pending.exception()
-        except:
-            pass
-        finally:
-            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-            self.loop.close()
+    def cleanup(self):
+        tasks = [
+            t for t in asyncio.all_tasks() if t is not asyncio.current_task()
+        ]
+        [t.cancel() for t in tasks]
+        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+        self.loop.close()
 
-    async def quit(self):
+    def quit(self):
         self.exit_signal = exceptions.ExitSignal()
         log.info("Cleaning up...")
         try:
-            await self.cleanup()
+            self.cleanup()
         except:
             log.warn("Encountered an error in cleanup.")
 
