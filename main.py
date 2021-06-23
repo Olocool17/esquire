@@ -4,6 +4,7 @@ import loghandler
 import shutil
 import ctypes
 import platform
+from time import sleep
 
 import exceptions
 from discord import opus
@@ -63,13 +64,12 @@ def main():
     log.info("All sanity checks passed!")
     try:
         bot = Esquire()
-
     except SyntaxError:
         log.exception(
             "CRINGE ALERT! CRINGY SYNTAX ERROR ENCOUNTERED! SHAME! SHAME! SHAME!"
         )
     except exceptions.RestartSignal:
-        log.info("Attempting restart...")
+        log.info("Attempting to restart program...")
         main()
     except exceptions.ExitSignal:
         log.info("Program will now exit.")
