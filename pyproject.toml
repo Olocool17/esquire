@@ -7,7 +7,6 @@ authors = ["Olocool17"]
 [tool.poetry.dependencies]
 python = "^3.9"
 "discord.py" = {extras = ["voice"], version = "*"}
-beautifulsoup4 = "^4.9.3"
 youtube_dl = "^2021.6.6"
 spotipy = "^2.18.0"
 
