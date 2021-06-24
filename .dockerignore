@@ -1,0 +1,14 @@
+.vscode/settings.json
+bpk.code-workspace
+__pycache__/bpk_wobbify.cpython-39.pyc
+__pycache__/confighandler.cpython-39.pyc
+__pycache__/esquire.cpython-39.pyc
+__pycache__/jsonhandler.cpython-39.pyc
+__pycache__/wobbify.cpython-39.pyc
+.gitignore
+__pycache__/exceptions.cpython-39.pyc
+__pycache__/loghandler.cpython-39.pyc
+.cache
+pyproject.toml
+poetry.lock
+.dockerignore
