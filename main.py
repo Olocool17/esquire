@@ -8,7 +8,6 @@ from time import sleep
 
 import exceptions
 from discord import opus
-from esquire import Esquire
 
 #Handles logging, checks if various dependencies and files exist, initialises the bot and then attempts to run the bot.
 
@@ -63,6 +62,7 @@ def main():
     sanitychecker()
     log.info("All sanity checks passed!")
     try:
+        from esquire import Esquire
         bot = Esquire()
     except SyntaxError:
         log.exception(
