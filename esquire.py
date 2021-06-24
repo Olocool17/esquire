@@ -55,7 +55,7 @@ class Esquire(commands.Bot):
             self.loop.run_until_complete(self.start(config.get('bot_token')))
         except discord.errors.LoginFailure:
             log.critical(
-                f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token {config.get('bot_token')} is correct?"
+                f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token \'{config.get('bot_token')}\' is correct?"
             )
         except discord.errors.HTTPException as e:
             log.critical("HTTP request failed, error code: " + e.code)
