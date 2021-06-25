@@ -4,7 +4,6 @@ import loghandler
 import shutil
 import ctypes
 import platform
-from time import sleep
 
 import exceptions
 from discord import opus

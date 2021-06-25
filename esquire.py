@@ -37,8 +37,7 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
 
 
 def is_music_channel(ctx):
-    return str(ctx.channel) == config.get('music_channel') or str(
-        ctx.channel) in config.get('music_channel')
+    return str(ctx.channel) in config.get('music_channel')
 
 
 class Esquire(commands.Bot):
@@ -132,20 +131,25 @@ class MusicCommands(commands.Cog):
 
     @commands.command()
     async def connect(self, ctx):
-        connect_channel = ctx.author.voice.channel
-        if connect_channel != None:
+        try:
+            connect_channel = ctx.author.voice.channel
             if ctx.voice_client is None:
                 await connect_channel.connect()
-            else:
+            elif ctx.voice_client.channel != connect_channel:
                 await ctx.voice_client.move_to(connect_channel)
-        self.playlistmanagers.append(PlaylistManager(ctx))
+            self.playlistmanagers.append(PlaylistManager(ctx))
+        except:
+            await ctx.send(
+                "You're not in a channel, you doofus! How am I supposed to know where to connect?!"
+            )
 
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
     async def play(self, ctx, *, query):
         plmanager = PlaylistManager.retrieve_playlist_manager(
             ctx, self.playlistmanagers)
-        await plmanager.queue(query, next=False)
+        if plmanager != None:
+            await plmanager.queue(query, next=False)
 
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
@@ -166,8 +170,7 @@ class MusicCommands(commands.Cog):
     @playnext.before_invoke
     @play.before_invoke
     async def ensure_connection(self, ctx):
-        if ctx.voice_client is None:
-            await self.connect(ctx)
+        await self.connect(ctx)
 
     @commands.command(pass_context=True)
     @commands.check(is_music_channel)
