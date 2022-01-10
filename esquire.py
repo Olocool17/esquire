@@ -229,7 +229,7 @@ class PlaylistManager:
 
     async def playback(self):
         if len(self.playlist) == 0:
-            self.voiceclient.stop()
+            await self.voiceclient.disconnect()
             await self.bot.change_presence(status=discord.Status.idle,
                                            activity=None)
             await self.playlist_message_delete()
