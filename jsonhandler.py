@@ -63,8 +63,3 @@ class JsonHandler:
                 json.dump(self.data, outfile, indent='\t')
             except:
                 log.error(f"Error writing to {self.jsonfile}")
-
-
-class QuotesHandler(JsonHandler):
-    def get_all_from_guild(self, guild):
-        pass
