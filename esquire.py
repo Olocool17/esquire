@@ -218,19 +218,11 @@ class PlaylistManager:
         await self.bot.change_presence(status=discord.Status.online,
                                        activity=playing_activity)
         self.voiceclient.play(self.playlist[0].audio_source,
-                              after=self.after_playback_async)
+                              after=self.after_playback)
 
-    def after_playback_async(self, error):
-        fut = asyncio.run_coroutine_threadsafe(self.after_playback(),
-                                               self.bot.loop)
-        try:
-            fut.result()
-        except:
-            pass
-
-    async def after_playback(self):
+    def after_playback(self, error):
         del self.playlist[0]
-        await self.playback()
+        asyncio.run_coroutine_threadsafe(self.playback(), self.bot.loop)
 
     async def playlist_message_update(self):
         embed = discord.Embed(title='Now Playing',
