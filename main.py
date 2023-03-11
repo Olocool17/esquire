@@ -63,10 +63,6 @@ def main():
     try:
         from esquire import Esquire
         bot = Esquire()
-    except SyntaxError:
-        log.exception(
-            "CRINGE ALERT! CRINGY SYNTAX ERROR ENCOUNTERED! SHAME! SHAME! SHAME!"
-        )
     except exceptions.RestartSignal:
         log.info("Attempting to restart program...")
         main()

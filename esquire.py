@@ -5,9 +5,9 @@ import loghandler
 import random
 
 import exceptions
-from wobbify import wobbifystring
-from wobbify import wobbifytxt
+import wobbify
 import jsonhandler
+import loghandler
 
 import youtube_dl
 from requests import get
@@ -19,7 +19,7 @@ import discord.utils
 from discord.ext import commands
 
 log = loghandler.get_logger(__name__)
-discordlog = loghandler.get_logger('discord')
+dlog = loghandler.get_logger('discord')
 
 ffmpeg_options = {
     'options': '-vn',
@@ -43,15 +43,15 @@ def is_music_channel(ctx):
 class Esquire(commands.Bot):
     def __init__(self):
         self.command_prefix = config.get('command_prefixes')
-        super(Esquire, self).__init__(self.command_prefix)
+        super(Esquire, self).__init__(self.command_prefix, intents=discord.Intents.default())
         self.exit_signal = None
-        self.add_cog(BasicCommands(self))
-        self.add_cog(MusicCommands(self))
-        self.initialise()
+        self.run(config.get('bot_token'), log_handler=loghandler.log_handler, log_formatter=loghandler.log_formatter)
+        if self.exit_signal:
+            raise self.exit_signal
 
-    def initialise(self):
+    async def initialise(self):
         try:
-            self.loop.run_until_complete(self.start(config.get('bot_token')))
+            self.loop.run_until_complete(self.start())
         except discord.errors.LoginFailure:
             log.critical(
                 f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token \'{config.get('bot_token')}\' is correct?"
@@ -66,24 +66,14 @@ class Esquire(commands.Bot):
             log.critical("Gateway connection has been closed: " + e.reason)
         finally:
             self.quit()
-            if self.exit_signal:
-                raise self.exit_signal
 
-    def cleanup(self):
-        tasks = [
-            t for t in asyncio.all_tasks() if t is not asyncio.current_task()
-        ]
-        [t.cancel() for t in tasks]
-        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-        self.loop.close()
+    
+    async def setup_hook(self):
+        await self.add_cog(BasicCommands(self))
+        await self.add_cog(MusicCommands(self))
 
     def quit(self):
         self.exit_signal = exceptions.ExitSignal()
-        log.info("Cleaning up...")
-        try:
-            self.cleanup()
-        except:
-            log.warn("Encountered an error in cleanup.")
 
 
 class BasicCommands(commands.Cog):
@@ -106,14 +96,14 @@ class BasicCommands(commands.Cog):
             for a in ctx.message.attachments:
                 if a.filename[-4:] == '.txt':
                     txtbytes = await a.read()
-                    wobbifiedtxtbytes = wobbifytxt(txtbytes)
+                    wobbifiedtxtbytes = wobbify.wobbifytxt(txtbytes)
                     wobbifiedfile = discord.File(fp=wobbifiedtxtbytes,
                                                  filename=a.filename[:-4] +
                                                  '_wobbified.txt')
                     await ctx.send(file=wobbifiedfile)
         else:
             argstr = " ".join(args)
-            await ctx.send(wobbifystring(argstr))
+            await ctx.send(wobbify.wobbifystring(argstr))
 
 
 class MusicCommands(commands.Cog):
