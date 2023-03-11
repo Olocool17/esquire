@@ -9,7 +9,7 @@ import wobbify
 import jsonhandler
 import loghandler
 
-import youtube_dl
+import yt_dlp as youtube_dl
 from requests import get
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -43,30 +43,16 @@ def is_music_channel(ctx):
 class Esquire(commands.Bot):
     def __init__(self):
         self.command_prefix = config.get('command_prefixes')
-        super(Esquire, self).__init__(self.command_prefix, intents=discord.Intents.default())
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super(Esquire, self).__init__(self.command_prefix, intents=intents)
         self.exit_signal = None
         self.run(config.get('bot_token'), log_handler=loghandler.log_handler, log_formatter=loghandler.log_formatter)
         if self.exit_signal:
             raise self.exit_signal
 
-    async def initialise(self):
-        try:
-            self.loop.run_until_complete(self.start())
-        except discord.errors.LoginFailure:
-            log.critical(
-                f"Could not login the bot because the wrong credentials were passed. Are you sure the bot_token \'{config.get('bot_token')}\' is correct?"
-            )
-        except discord.errors.HTTPException as e:
-            log.critical("HTTP request failed, error code: " + e.code)
-        except discord.errors.GatewayNotFound:
-            log.critical(
-                "Gateway connection could not be established. The Discord API is probably experiencing an outage."
-            )
-        except discord.errors.ConnectionClosed as e:
-            log.critical("Gateway connection has been closed: " + e.reason)
-        finally:
-            self.quit()
-
+    async def close(self):
+        log.info("Closing down!")
     
     async def setup_hook(self):
         await self.add_cog(BasicCommands(self))
